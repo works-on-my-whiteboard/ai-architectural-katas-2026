@@ -6,7 +6,7 @@ Accepted, 2026-09-16. Supersedes / Superseded by: none.
 
 ## Context
 
-AI will flag sick or under-fed animals, unusual ride vibration and pricing opportunities. Each of these could in principle trigger an action automatically: change a feed schedule, close a ride, alter a price. Animals can be poisonous and expensive to treat, the rides are 18th century and freshly re-inspected, and pricing decisions carry legal and reputational weight. The judges ask how AI results are validated; the estate's owner asks who is accountable.
+AI will flag sick or under-fed animals, unusual ride vibration and pricing opportunities. Each of these could in principle trigger an action automatically: change a feed schedule, close a ride, alter a price. Animals can be poisonous and expensive to treat, the rides are 18th century and freshly re-inspected, and pricing decisions carry legal and reputational weight. The estate needs a named accountable person for each decision.
 
 Forces:
 
@@ -27,7 +27,7 @@ Forces:
 
 Every AI output that concerns an animal, a ride or a price is a recommendation. A named human role owns the decision: keepers for feeding and welfare, the ride inspection lead for ride condition, the commercial manager for pricing. The system records the recommendation, the decision and the reason.
 
-For welfare and rides, deterministic safety functions remain as they are: threshold alarms on water chemistry run on the gateway rule engine, and ride safety remains the inspection regime. AI only prioritises human attention.
+For welfare and rides, deterministic operational controls remain as they are: water-chemistry thresholds run on the gateway rule engine, while ride safety remains the inspection regime. AI only prioritises human attention. Containment and keeper duress are the separate hard-wired life-safety path.
 
 Each accept or reject becomes a labelled example, so the models improve from the humans they serve. Acceptance rate is an online quality signal ([ADR-012](ADR-012-llm-observability-and-kill-switches.md)); a falling rate indicates a model that is losing trust.
 

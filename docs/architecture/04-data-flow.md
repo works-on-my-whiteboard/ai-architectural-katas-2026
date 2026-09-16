@@ -1,13 +1,15 @@
 # Data flow from device to cloud to warehouse
 
-This document follows an event from a device on the estate to the dashboards, models and reports in the cloud, in both the normal case and the case where the backhaul is down. It also classifies the data the platform holds, states how long each class is kept and how far it may travel. The rule that shapes the design is that the edge never loses an event and the cloud never double-counts one.
+This document follows an event from a device on the estate to the dashboards, models and reports in the cloud, in both the normal case and the case where the backhaul is down. It also classifies the data the platform holds, states how long each class is kept and how far it may travel. The rule that shapes the design is that **a loss of the backhaul never loses an event, and the cloud never double-counts one.**
+
+That claim is scoped deliberately, because the unscoped version is not true. Store-and-forward protects against the failure the brief actually describes — an intermittent link — by moving the event to durable local storage before anything else depends on it. It does **not** protect against the loss of that local storage: if a gateway's disk is physically destroyed, the events queued on it and not yet forwarded are gone. The recovery point is therefore *how far behind the bridge was when the unit died* — seconds on a healthy link, up to hours of one zone's telemetry during an outage — and the response is the reconciliation described in [05-site-core-and-spare](../explainers/05-site-core-and-spare.md#the-spare-gateway) and catalogued in the [fault catalogue](../fault-catalogue.md). Gate admissions are unaffected either way, because a scan is authorised locally and the ticket itself is the durable artefact.
 
 ## Normal path
 
 ```mermaid
 flowchart LR
   D["Device"] -- "MQTT QoS 1" --> B["Zone broker"]
-  B --> R["Local rules and edge models"]
+  B --> R["Operational rules and edge models"]
   B --> Q["Store and forward queue"]
   Q -- "bridge" --> H["Cloud IoT hub"]
   H --> E["Event backbone"]
@@ -27,7 +29,7 @@ flowchart LR
 | Stage | Latency target | Notes |
 |---|---|---|
 | Device to zone broker | Under 1 second | Local network |
-| Broker to local rules and keeper devices | Under 5 seconds | Alarms never wait for the cloud |
+| Broker to local rules and keeper devices | Under 5 seconds | Operational alerts never wait for the cloud; containment and duress use direct hard wiring |
 | Bridge to cloud hub | Under 10 seconds with backhaul up | Bounded only by the link |
 | Hot path to dashboards | Under 2 minutes | Occupancy in 15-minute buckets, refreshed as events arrive |
 | Cold path to warehouse | Hourly to daily | Batch loads; nothing operational depends on it |
@@ -44,7 +46,7 @@ sequenceDiagram
   participant Con as Idempotent consumer
 
   Dev->>Brk: publish event, seq 1041
-  Brk->>Rul: evaluate rules, alarm locally if needed
+  Brk->>Rul: evaluate operational rules, alert locally if needed
   Brk->>Q: append, awaiting cloud ack
   Note over Q,Hub: Backhaul down for several hours
   Q--xHub: bridge cannot deliver, queue grows on disk
@@ -88,8 +90,8 @@ Configuration flows the other way on retained topics: alarm rules, signing keys 
 | Ticket events | Scan events with ticket id, gate, time | Indirectly, via the order | Yes, to cloud | 2 years | Linked to a household only in the cloud CRM |
 | Orders and payments | Order, product, amount, payment provider reference | Yes | Cloud only, never to the edge | 7 years for accounting | Card data never enters the platform |
 | Guest personal data | Account, household, consent flags, visit history, app behaviour | Yes | Cloud only | Until consent is withdrawn, then deleted or anonymised | Consent gates every use; see [ADR-013](../adr/ADR-013-privacy-preserving-footfall-and-consent.md) |
-| Guide conversations | Guest questions and answers, retrieved chunks | Yes, may contain free text | Cloud, and to a model provider after PII redaction | 90 days raw, then aggregated for evals | Redaction happens in the catalogue's managed guardrail policy, before the prompt reaches a model |
-| Keeper observations and voice notes | Free text, audio, structured records | Yes, keeper identity | Cloud; audio to a model provider only after consent and redaction | Welfare records indefinitely, audio 30 days | Append-only welfare record |
+| Guide conversations | Guest questions and answers, retrieved chunks | Yes, may contain free text | Cloud, and to a model provider after PII redaction | 90 days raw, then aggregated for evals | Redaction is deterministic and runs in the model access layer before a candidate is selected, so it holds for the self-hosted Tier 2 as well as the catalogue ([ADR-012](../adr/ADR-012-llm-observability-and-kill-switches.md)) |
+| Keeper observations and voice notes | Free text, audio, structured records | Yes, keeper identity | Cloud; raw audio only to the restricted transcription endpoint, then a redacted transcript to the model catalogue | Welfare records indefinitely; audio follows the legal/licensing retention policy and any audit or incident hold | Append-only welfare record; raw audio never reaches the shared external model catalogue |
 | Welfare and vet records | Animal history, treatments, population counts | No | Cloud, cached on keeper tablets | Indefinitely | Append-only with audit trail |
 
 ## Related

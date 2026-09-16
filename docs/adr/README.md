@@ -4,7 +4,7 @@ Each record is a short text file, one decision per file, using the kata's format
 
 | ADR | Title | Status | Decision in one line |
 |---|---|---|---|
-| [001](ADR-001-edge-first-hybrid-architecture.md) | Edge-first, event-driven hybrid architecture | Accepted | Zone gateways keep gates, alarms and keeper tools working offline; the cloud owns ticketing, analytics and AI |
+| [001](ADR-001-edge-first-hybrid-architecture.md) | Edge-first, event-driven hybrid architecture | Accepted | Zone gateways keep gates, operational welfare alerts and keeper tools working offline; hard-wired panels carry containment and duress; the cloud owns ticketing, analytics and AI |
 | [002](ADR-002-mqtt-topology-and-store-and-forward.md) | MQTT topology, QoS and store-and-forward | Accepted | Local broker per zone, QoS 1, persistent sessions, disk-queued bridge to the cloud, idempotent consumers |
 | [003](ADR-003-offline-verifiable-signed-tickets.md) | Offline-verifiable signed tickets | Accepted | Ed25519-signed QR tokens verified at the gate with a small synced revocation list |
 | [004](ADR-004-classic-ml-vs-genai-selection.md) | Classic ML versus GenAI selection principle | Accepted | Owned classic models for numeric and visual tasks; GenAI only where language is the input or output |
@@ -19,3 +19,5 @@ Each record is a short text file, one decision per file, using the kata's format
 | [013](ADR-013-privacy-preserving-footfall-and-consent.md) | Privacy-preserving footfall and consent | Accepted | Anonymous counters and gate scans for popularity; personalisation only with granular consent |
 | [014](ADR-014-caching-and-batch-cost-levers.md) | Caching and batch as the first cost levers | Accepted | Prompt caching, semantic cache, batch and effort settings are applied before any model downgrade |
 | [015](ADR-015-occupancy-grain-and-operating-hour-normalisation.md) | Fifteen-minute occupancy buckets per operating hour | Accepted | One 15-minute grain for all popularity views, computed at the edge, with closed hours excluded from the denominator |
+| [016](ADR-016-local-incident-response.md) | Local, role-based incident response for venomous containment and keeper safety | Accepted | Hard-wired detection, duress stations and a drilled radio-led human response; no cloud, no WiFi and no AI on the life-safety path |
+| [017](ADR-017-simulation-gym.md) | Simulation gym for estate and delivery decisions | Accepted | Two owned, read-only calibrated models; hard safety and welfare constraints gate a scenario before revenue is compared |

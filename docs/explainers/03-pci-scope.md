@@ -39,7 +39,7 @@ Three reasons this earns a place in the design documents rather than a procureme
 
 **It is a declared non-goal.** Handling card payments in-house sits in the same list as not automating ride safety inspection and not letting AI act on an animal without a keeper. All three are the same move: identify a liability, and place it with the party equipped to carry it. Writing down what you are deliberately *not* building is itself an architectural decision.
 
-**It is a fitness function.** Security and privacy is the seventh ranked characteristic, and one of its tests is literally that payment card data never touches estate systems. That is checkable — it either does or it does not — which is what makes it a fitness function rather than an aspiration.
+**It is a fitness function.** Security and privacy is an invariant rather than a ranked characteristic — it is never traded against cost — and one of its tests is literally that payment card data never touches estate systems. That is checkable — it either does or it does not — which is what makes it a fitness function rather than an aspiration.
 
 **It changes the failure analysis.** The context view names the payment provider as an external dependency and asks what happens when it is unavailable: online sales pause, gate sales fall back to a standalone card terminal with deferred settlement, and **existing tickets are unaffected, because validation is offline and signed**.
 

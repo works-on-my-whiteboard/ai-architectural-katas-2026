@@ -12,7 +12,7 @@ Choosing a single catalogue changes what this has to do, in both directions. It 
 
 Forces:
 
-- Cost transparency is a ranked characteristic of the base architecture.
+- Cost transparency is a constraint on how the base architecture's characteristics are met, and a budget cap may only degrade a feature to its designed non-AI fallback, never weaken an invariant ([05-characteristics](../architecture/05-characteristics.md)).
 - The estate's finance owner must be able to see AI spend by feature and act on it before month end.
 - Automated cost responses must not silently degrade quality below what a feature needs.
 - Deprecations are announced in advance and should be handled on the estate's schedule.

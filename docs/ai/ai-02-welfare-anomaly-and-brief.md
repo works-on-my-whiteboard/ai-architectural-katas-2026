@@ -2,11 +2,12 @@
 
 ## Problem
 
-Looking after the animals is costly, and far more so when they get sick (F3). With 200 animals across 55 enclosures, keepers cannot watch every reading and every feeder every hour. The estate needs early, specific warnings about health and feeding, and a morning summary that tells each keeper where to look first, without adding screens to read.
+Looking after the animals is costly, and far more so when they get sick (brief F3, F4 and F9; requirements F3.1–F3.6). With 200 animals across 55 enclosures, keepers cannot watch every reading and every feeder every hour. The estate needs early, specific warnings about health and feeding, and a morning summary that tells each keeper where to look first, without adding screens to read.
 
 ## Approach
 
-- Each enclosure has a sensor kit (temperature, humidity and, for aquatic displays, pH, dissolved oxygen, ammonia, salinity, turbidity), a smart feeder with a load cell that records food dispensed and food left over, and a camera that produces a coarse activity index on the gateway (movement per hour, never identity).
+- Each enclosure has a sensor kit (temperature, humidity and, for aquatic displays, pH, dissolved oxygen, ammonia, salinity, turbidity) and a camera that produces a coarse activity index on the gateway (movement per hour, never identity). Fifty of the 55 also have a smart feeder with a load cell recording food dispensed and food left over; the remaining five are hand-fed, and the keeper enters the same two weights from the feed-prep scales ([03-edge-zone](../architecture/03-edge-zone.md)).
+- **The model is told which mechanism an enclosure uses.** On a feeder enclosure, silence in the feed series is a fault and is flagged as one. On a hand-fed enclosure, the series is lower-frequency and human-entered, so the same silence is normal and the anomaly bands are fitted to that cadence. Conflating the two would generate a standing false alarm on five enclosures and teach keepers to dismiss the feature.
 - Keepers add observations on the tablet (appetite, behaviour, stool, injuries). Vet records are held in the welfare service.
 - Owned anomaly models per species group flag departures from each enclosure's own baseline. Start with statistical bands and seasonal decomposition; move to isolation forests where the simple bands prove noisy. Safety-critical thresholds (water chemistry out of range) are plain rules evaluated on the gateway.
 - Every morning the welfare service assembles the structured anomalies for each enclosure and asks for the capability `summarise.welfare` to produce a plain-language brief that cites the data points behind each item. Briefs are generated in batch overnight.
@@ -52,7 +53,7 @@ flowchart TB
 
 ## Where it runs
 
-Rules and the activity index run on the zone gateway so that alarms fire with the cloud unreachable. Anomaly models and brief generation run in the cloud because they need history across days and species groups. The brief is a batch job, so a slow or absent link delays it rather than breaks it.
+Operational welfare rules and the activity index run on the zone gateway so that welfare alerts fire with the cloud unreachable. Anomaly models and brief generation run in the cloud because they need history across days and species groups. The brief is a batch job, so a slow or absent link delays it rather than breaks it.
 
 ## Degradation and fallback
 
@@ -79,22 +80,23 @@ Production:
 
 ## Conformance
 
-| Characteristic | How AI-2 honours it |
+| Property | How AI-2 honours it |
 |---|---|
-| Availability under partition | Alarms are rules on the gateway; the brief is batch and tolerates delay |
+| **Invariant — life safety** | Containment and duress remain hard-wired; anomaly output is an advisory to a keeper and cannot suppress or create an alarm |
+| **Invariant — data integrity** | AI writes recommendations, never records; keepers record actions |
+| **Invariant — security and privacy** | No video leaves the zone; no personal data enters prompts |
+| Availability under partition | Operational welfare alerts are rules on the gateway; the brief is batch and tolerates delay |
 | Evolvability | Anomaly models are registry artifacts; the brief names a capability, not a model |
 | Observability | Alert volume, accept rate, citation coverage and token cost are all metered |
-| Data integrity | AI writes recommendations, never records; keepers record actions |
 | Elastic scalability | Batch generation off-peak; per-enclosure models scale linearly |
-| Cost transparency | `summarise.welfare` has its own budget; 55 briefs a day is negligible |
-| Security and privacy | No video leaves the zone; no personal data in prompts |
+| Cost transparency *(constraint)* | `summarise.welfare` has its own budget; 55 briefs a day is negligible |
 
 ## Value
 
-- Problems are seen days earlier, when treatment is cheaper and losses are avoidable.
+- **Hypothesis:** problems become visible earlier than a keeper would notice them, when treatment is cheaper and losses are avoidable. The size of that lead time is unknown before deployment and is the thing the Phase 2 evidence gate measures.
 - Keepers start the day with a prioritised list rather than a wall of charts.
 - Every accept or reject makes the models better, so the system improves with use.
-- Estimate: if early detection avoids one serious veterinary case per quarter, the running cost of this feature is covered many times over.
+- **Break-even, stated as a condition rather than a result:** the feature's running cost is covered if early detection avoids roughly one serious veterinary case per quarter. Whether it does is exactly what the blind historical replay and the keeper acceptance rate are there to find out. The estate should treat this as the threshold the feature must clear, not as a benefit already banked.
 
 ## Related
 

@@ -33,7 +33,7 @@ The decision between B and D is not about capability, it is about who maintains 
 
 **One catalogue is the only integration.** Every generative model call goes to a single hyperscaler model catalogue: AWS Bedrock in the worked example, with Vertex AI or Azure AI Foundry as equivalents. Its unified inference API is the adapter layer, so several model families are reachable without the estate writing or maintaining a per-provider adapter.
 
-**Features address a capability, never a model.** `chat.guide`, `summarise.welfare`, `explain.ops`, `classify.sentiment`, `generate.offer`, `embed.text`. This is unchanged from earlier drafts of this decision and is the sentence the whole uncertainty answer rests on. What changes is only where the indirection lives.
+**Features address a capability, never a model.** `chat.guide`, `summarise.welfare`, `explain.ops`, `classify.sentiment`, `generate.offer`, `embed.text`. The capability contract is the stable boundary for the uncertainty strategy; the indirection lives in configuration rather than in a separately deployed service.
 
 **The indirection is configuration, not a service.** A thin shared client, the *model access layer*, is linked into each service that needs a model. Per call it resolves the capability to a model identifier and parameters from the capability map, attaches the guardrail policy and the cost-attribution tag, checks the feature flag, emits the OpenTelemetry span, and on failure walks the candidate list and then falls through to the capability's Tier 3 behaviour. It holds no state beyond a short-TTL cache of the capability map. Python and TypeScript implementations cover every service in the estate; a third would be a day's work, because the library is deliberately thin.
 
@@ -45,7 +45,7 @@ The capability map is a versioned artefact in git, rendered to the cloud paramet
 |---|---|---|
 | Provider adapters, streaming, tool use, structured output | Unified inference API across model families | — |
 | Credentials and network path | IAM roles and VPC endpoints; no service holds a model API key | — |
-| Guardrails | Managed policy: PII redaction, denied topics, content filters, contextual grounding check | Per-capability schema and citation assertions |
+| Guardrails | Managed policy: denied topics, content filters, contextual grounding check — all of which may degrade at Tier 2 | **Deterministic PII redaction and tokenisation, applied before candidate selection so it holds on every tier**; per-capability schema, citation and refusal assertions ([ADR-012](ADR-012-llm-observability-and-kill-switches.md)) |
 | Cost attribution | Per-feature tagging through application inference profiles | Capability roll-up and the priced view |
 | Prompt caching and batch pricing | Native | Prompt discipline that keeps the cacheable prefix stable |
 | Regional capacity and failover | Cross-region inference | — |
@@ -94,7 +94,7 @@ Routing remains by capability and health, not per-request cascading: prompt cach
 - No component was added to the path of a guest chat, and no adapter backlog was created. The catalogue absorbs provider churn.
 - Credentials, residency, private networking and guardrails are inherited from the cloud's existing controls rather than reimplemented.
 - Batch pricing, prompt caching and cross-region capacity are available on day one.
-- Dropping the separate service also removes a naming collision: in this estate "gateway" now means only a zone or site gateway.
+- The model access layer has a distinct name and is a linked library, so "gateway" remains reserved for zone and site infrastructure.
 
 ### Negative
 

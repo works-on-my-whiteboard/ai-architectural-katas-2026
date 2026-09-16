@@ -2,14 +2,14 @@
 
 ## Problem
 
-The estate wants more visitors and more returning visitors but is not sure how (F5). A first-time family arriving at a sprawling estate with 40 rides, 55 enclosures and patchy WiFi needs help deciding what to see, when, and how to avoid queues. A guide that answers questions accurately, plans a day around the family's needs and nudges them towards quiet attractions turns a confusing visit into a good one, which is what brings people back.
+The estate wants more visitors and more returning visitors but is not sure how (brief F6 and F7; requirements F5.1–F5.3). A first-time family arriving at a sprawling estate with 40 rides, 55 enclosures and patchy WiFi needs help deciding what to see, when, and how to avoid queues. A guide that answers questions accurately, plans a day around the family's needs and nudges them towards quiet attractions turns a confusing visit into a good one, which is what brings people back.
 
 ## Approach
 
 - A conversational guide in the guest app, backed by retrieval-augmented generation over curated estate content: animals, rides, history, accessibility, food, opening times, safety rules. Content is written and approved by the estate, chunked and embedded through the `embed.text` capability, and stored in our own vector store alongside the source text.
 - Live inputs through a tool call: queue lengths and occupancy from AI-3, show times, weather.
 - Itinerary planning: given family composition (ages, mobility needs, interests) and time available, the guide proposes a route that balances interests against predicted queues. Push alerts when a favourited ride's queue drops.
-- The guide calls the `chat.guide` capability, which configuration resolves to a model in the catalogue. The stable prefix (system prompt, guardrail rules, estate profile) is prompt-cached by the catalogue; frequent questions are served from a semantic cache in the Engagement service without a model call at all.
+- The Engagement service owns the orchestration: it checks the semantic cache, retrieves chunks from the vector store, makes the live tool call for queues, and assembles the prompt. Only then does it call the `chat.guide` capability. The model access layer is a library inside that service, not a hop in front of it ([ADR-005](../adr/ADR-005-model-access-and-capability-contracts.md)): it resolves the capability to a model, checks the kill switch, emits the span, asserts schema and citations on the way back, and walks the candidate list on failure. It does no retrieval and holds no cache beyond the capability map. The stable prefix (system prompt, guardrail rules, estate profile) is prompt-cached by the catalogue; frequent questions are served from the Engagement service's semantic cache without a model call at all.
 - Guardrails: answers must cite retrieved content or a live tool result, otherwise the guide says it does not know and points to staff. Medical, safety and emergency topics are refused with a fixed message and a route to staff. PII is redacted before any external call. Per-user and per-device rate limits cap abuse and cost.
 - Offline behaviour: the app ships with a cached knowledge base, a static map and the day's show times. When the link is poor the same question box falls back to keyword search over the cached content, labelled as offline mode.
 
@@ -25,17 +25,18 @@ sequenceDiagram
   participant M as Model provider tier
   G->>E: Question or itinerary request
   E->>E: Consent check, PII redaction, rate limit
-  E->>GW: chat.guide with user context
-  GW->>GW: Semantic cache lookup
+  E->>E: Semantic cache lookup
   alt Cache hit
-    GW-->>E: Cached answer
+    Note over E: No model call at all
   else Cache miss
-    GW->>V: Retrieve chunks
-    GW->>O: Tool call for live queues
+    E->>V: Retrieve chunks
+    E->>O: Tool call for live queues
+    E->>GW: chat.guide with assembled context
+    GW->>GW: Resolve capability, check kill switch, start span
     GW->>M: Prompt with cached prefix and retrieved context
     M-->>GW: Answer with citations
-    GW->>GW: Schema and citation check
-    GW-->>E: Answer or safe refusal
+    GW->>GW: Schema and citation assertions
+    GW-->>E: Answer or fallback signal
   end
   E-->>G: Answer with citations and map links
   alt All provider tiers down or budget cap
@@ -93,21 +94,22 @@ Production:
 
 ## Conformance
 
-| Characteristic | How AI-4 honours it |
+| Property | How AI-4 honours it |
 |---|---|
+| **Invariant — life safety** | The guide refuses safety advice and has no path to containment, duress, doors, rides or emergency response |
+| **Invariant — data integrity** | The guide reads from approved content and live services; it writes nothing |
+| **Invariant — security and privacy** | Personalisation is consent-gated; PII is redacted before external calls and traces are retention-limited |
 | Availability under partition | Cached content and keyword search in the app; FAQ mode in the cloud |
 | Evolvability | Names `chat.guide` and `embed.text`, never a model; source text kept so re-embedding is a batch job |
 | Observability | Every turn traced with retrieved chunks, citations, tokens and cost |
-| Data integrity | The guide reads from approved content and live services; it writes nothing |
 | Elastic scalability | Stateless calls with no shared component to scale; caches absorb peaks |
-| Cost transparency | Dominant GenAI spend, so it has its own budget, rate limits and cost dashboard |
-| Security and privacy | Consent-gated personalisation; PII redacted before external calls; traces retention-limited |
+| Cost transparency *(constraint)* | Dominant GenAI spend, so it has its own budget, rate limits and cost dashboard |
 
 ## Value
 
 - Guests get a day plan that fits their family and avoids queues, which is the visible difference between a good visit and a tiring one.
 - The estate gets a channel for nudging guests to under-used attractions and a record of what guests ask, which feeds content and investment decisions.
-- Estimate: at target scale roughly 22,000 answered turns a day, costing in the low thousands of pounds a month before caching. A small lift in return visits pays for it many times over.
+- **Cost is knowable; benefit is not.** At target scale roughly 22,000 answered turns a day, costing in the low thousands of pounds a month before caching — that figure follows from token arithmetic and published list prices. The benefit is a hypothesis: the guide pays for itself if it lifts return visits by a fraction of a percent, and whether it does is measured against a holdout group rather than assumed. The kill switch exists partly so that a negative answer is cheap to act on.
 
 ## Related
 

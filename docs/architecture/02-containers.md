@@ -8,7 +8,7 @@ flowchart LR
     DEV["MQTT devices. Gate scanners, people counters, enclosure sensors, feeders, cameras, ride sensors"]
     GW["Zone gateway"]
     BRK["Local MQTT broker"]
-    RUL["Alarm rule engine"]
+    RUL["Operational welfare and maintenance rules"]
     TKC["Ticket validation cache"]
     VIS["Edge vision and anomaly runtime"]
     BUF["Store and forward buffer"]
@@ -66,6 +66,8 @@ flowchart LR
   TK --> PAY["Payment provider"]
 ```
 
+Line styles follow the [diagram conventions](../../README.md#the-architecture-in-one-view): solid is a dependency that must hold, dotted is a path allowed to fail or taken only on failure.
+
 ## Container catalogue
 
 | Container | Responsibility | Technology options | Owns | When partitioned |
@@ -73,7 +75,7 @@ flowchart LR
 | MQTT devices | Sense and act at the asset: scan a ticket, count people, read water quality, weigh feed, capture video, measure vibration | Vendor devices with MQTT 3.1.1 or 5 client, per-device certificate | Nothing durable beyond a small outbound queue | Publish to the local broker as normal; queue if the broker is unreachable |
 | Zone gateway | Hosts every edge container for a zone. Ruggedised industrial PC, GPU module in vision zones | Industrial PC, Jetson-class module, containerised runtime | Zone configuration, device registry for its zone | Fully autonomous |
 | Local MQTT broker | Fan-out for the zone, ACLs, retained state, last-will | Mosquitto or EMQX Edge | Retained last-known values per topic | Serves the zone unchanged |
-| Alarm rule engine | Threshold and rate rules on telemetry; routes alarms to keeper devices and sounders | Node-RED style flows or a small rules service | Rule definitions synced from the cloud | Keeps evaluating with the last synced rules |
+| Operational welfare and maintenance rules | Threshold and rate rules on telemetry; route operational alerts to keeper devices and local non-containment sounders | Node-RED style flows or a small rules service | Rule definitions synced from the cloud | Keeps evaluating with the last synced rules; cannot create, suppress or delay containment or duress alarms |
 | Ticket validation cache | Verifies signed tickets offline; holds the revocation list and recent scans | Small service on the gateway; signed key bundle | Revocation list, scan log for dedupe | Admits valid tickets; scans replay on reconnect. See [signed-ticket-format.md](../implementation/signed-ticket-format.md) |
 | Edge vision and anomaly runtime | Runs owned models: fish counting, activity index, ride vibration anomaly | ONNX Runtime or TensorRT on the GPU module | Model artifacts, inference results, sampled audit frames | Keeps inferring; results buffer for replay |
 | Store and forward buffer | Persists every outbound event until the cloud acknowledges it | Broker persistence plus a bridge with a local queue on disk | Up to 72 hours of zone events | Fills, then replays in order on reconnect |
@@ -88,16 +90,20 @@ flowchart LR
 | Park Ops and Occupancy | Occupancy, queues, forecasts, staffing recommendations, ride advisories | Containerised service; forecasting models | Occupancy history, rosters | Zone dashboards show local counts only |
 | Animal Welfare | Enclosure and animal records, feeding logs, vet records, anomaly cases, population counts | Containerised service; append-only records | Welfare records | Keeper tablet holds local drafts; alarms are local |
 | Guest Engagement | App backend, itineraries, guide sessions, notifications, offers | Containerised service | Guide sessions, itineraries, notification log | App uses cached content and keyword search |
+| Maintenance and Assets | Asset register for rides, enclosures and displays; work orders, labour, parts, downtime and consumables; the cost side of return per attraction | Containerised service; append-only work orders | Asset register, work orders, cost history | Engineer tablet holds a local outbox; orders sync on reconnect. See [07-attraction-economics.md](07-attraction-economics.md) |
 | Analytics and BI | Popularity, revenue, cost per feature, growth tracking | Warehouse plus BI tool | Reports and marts | Not applicable |
 | Model access layer | Not a service. A thin client library linked into every service that calls a model: resolves capability to model from the capability map, attaches the guardrail policy and cost tag, checks the kill switch, emits the trace, walks the candidate list | Shared library, Python and TypeScript | None; a short-TTL cache of the capability map | Walks to Tier 2, then returns a fallback signal so the caller uses Tier 3 |
 | Model registry, capability map and eval pipeline | Catalogue of models, price sheet, eval scores, promotion state, and the capability-to-model map; deploys owned edge models | Configuration artefacts in git rendered to the parameter store, plus eval jobs in CI and nightly | Registry, golden datasets, eval results | Not applicable; last-known config stays cached in each service |
 | Guest app | Tickets in wallet, map, guide, itinerary, alerts, recap | Offline-first PWA or native | Cached content, tickets | Works offline for tickets, map and cached content |
 | Ops dashboard | Live occupancy, staffing, advisories, incidents | Web app | Nothing durable | Zone-local view from the gateway when the cloud is unreachable |
 
+**This table is the target state, not the first deployment.** At 5,000 visitors a day the estate does not need Kafka, Flink, a separate time-series store, a lakehouse or Kubernetes; the Phase 1 cloud is a managed IoT hub, one Postgres instance and four containers. Each heavier component above has a named trigger before it is bought, in the [delivery plan](../delivery-plan.md#the-minimum-cloud-baseline). The edge column does not shrink — a scaled-down gateway is just an outage waiting for a guest.
+
 ## Coupling rules
 
 - Cloud services couple only through the event backbone and explicit APIs; no shared databases.
 - The edge never calls a cloud service synchronously on a guest-facing or safety path. Anything the edge needs from the cloud (keys, revocations, rules, model artifacts) is pushed down and cached.
+- Venomous containment and keeper duress are direct, hard-wired alarm-panel circuits outside every edge container. Edge software receives a non-blocking event copy for context and recording only ([Safety case](06-safety-case.md)).
 - Every GenAI call names a capability and is resolved to a model by the model access layer. No service holds a model API key; access is by IAM role to one model catalogue. See [ADR-005](../adr/ADR-005-model-access-and-capability-contracts.md).
 - AI containers only ever produce recommendations, briefs and scores. Writes to tickets, payments and welfare records come from humans or deterministic services. See [ADR-011](../adr/ADR-011-human-in-the-loop.md).
 
@@ -105,8 +111,11 @@ flowchart LR
 
 - [01-context.md](01-context.md)
 - [03-edge-zone.md](03-edge-zone.md)
+- [08-cloud-deployment.md](08-cloud-deployment.md)
 - [04-data-flow.md](04-data-flow.md)
 - [05-characteristics.md](05-characteristics.md)
+- [Delivery plan](../delivery-plan.md), the phases and the minimum cloud baseline
+- [Walkthroughs](../walkthroughs.md), these containers followed end to end
 - [ADR-001 Edge-first hybrid architecture](../adr/ADR-001-edge-first-hybrid-architecture.md)
 - [ADR-002 MQTT topology and store-and-forward](../adr/ADR-002-mqtt-topology-and-store-and-forward.md)
 - [ADR-003 Offline-verifiable signed tickets](../adr/ADR-003-offline-verifiable-signed-tickets.md)

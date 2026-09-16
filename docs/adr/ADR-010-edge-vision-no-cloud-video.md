@@ -6,7 +6,7 @@ Accepted, 2026-09-16. Supersedes / Superseded by: none.
 
 ## Context
 
-Counting the jumping piranha population, estimating queue lengths and measuring animal activity all benefit from cameras. Video is the heaviest data the estate will produce, the backhaul is unreliable, and cameras in public areas raise privacy questions. The judges score suitability to constraints and privacy is an implicit requirement.
+Counting the jumping piranha population, estimating queue lengths and measuring animal activity all benefit from cameras. Video is the heaviest data the estate will produce, the backhaul is unreliable, and cameras in public areas raise privacy questions. Privacy is an architectural invariant.
 
 Forces:
 

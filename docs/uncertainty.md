@@ -170,10 +170,15 @@ This is the common case and the catalogue absorbs it completely.
 | Step | Action | Who | Elapsed |
 |---|---|---|---|
 | 1 | Breakers open across every candidate at once, because they share a control plane | Automated | Seconds |
-| 2 | Tier 2 self-hosted takes over at eval-verified quality, in a separate account with a separate provider | Automated | Seconds to minutes |
-| 3 | Guests and staff see the "reduced mode" notice; capabilities Tier 2 cannot serve go to Tier 3 | Automated | Seconds |
-| 4 | If Tier 2 is also unavailable, Tier 3 keeps the product working with zero GenAI | Automated | Seconds |
-| 5 | Open the second-catalogue escalation in [ADR-006](adr/ADR-006-multi-provider-portfolio.md); re-point the capability map as it lands | Platform team | Days to weeks |
+| 2 | **Tier 3 takes the whole load immediately.** Every capability's non-AI fallback is in-process and needs no capacity anywhere | Automated | Seconds |
+| 3 | Tier 2's warm pool absorbs what it can, at eval-verified quality, in a separate account with a separate provider | Automated | Seconds |
+| 4 | Tier 2 scales out towards the current request rate; traffic moves off Tier 3 as capacity appears | Automated | Minutes, model and provider dependent |
+| 5 | Guests and staff see the "reduced mode" notice; capabilities Tier 2 cannot serve stay on Tier 3 | Automated | Seconds |
+| 6 | Open the second-catalogue escalation in [ADR-006](adr/ADR-006-multi-provider-portfolio.md); re-point the capability map as it lands | Platform team | Days to weeks |
+
+**Tier 2 is a warm pool, not a hot standby.** It serves the traffic its warm capacity can take immediately; overflow falls to Tier 3 while the pool scales. A peak-sized hot standby would cost more than the traffic it protects, so [ADR-006](adr/ADR-006-multi-provider-portfolio.md) keeps the smallest model that passes the capability's minimum evaluation score warm. Nothing waits on a cold start, because Tier 3 is available throughout.
+
+The practical reading: **at low traffic a catalogue outage is barely visible, and at peak it is a visible quality dip that recovers over minutes.** Guests get a working product throughout either way, because Tier 3 is a designed behaviour rather than an error path. Cold-start time is measured in the monthly drill so the width of that dip is a known number rather than a surprise.
 
 Every generative feature degrades together in this case, which is the accepted consequence of a single catalogue. What limits the damage is that the degradation is designed, measured and rehearsed rather than discovered: Tier 2 is eval-scored, Tier 3 is exercised in every eval run, and the monthly partition drill covers both. Nothing is lost because all state, prompts, embeddings and labels are ours.
 
@@ -210,7 +215,7 @@ Note what the diagram does not show: a box between the feature and the model. Th
 
 The guest guide dominates GenAI spend. Assumptions at target scale: 15,000 visitors a day, 25% use the guide, 6 turns each, about 2,500 input tokens per turn (mostly a cacheable prefix) and 250 output tokens. That is roughly 56M input and 5.6M output tokens per day.
 
-Prices are Anthropic first-party list prices as of June 2026. They are illustrative here; the live price sheet lives in the registry, not in prose.
+The prices below are illustrative first-party list-rate assumptions as of June 2026. They are used to show workload sensitivity, not to claim parity with a hyperscaler catalogue. Procurement enters the chosen catalogue's effective regional price sheet into the registry before a capability is enabled; the live price sheet, not this prose, controls routing and budget enforcement.
 
 | Model routed to `chat.guide` | Input $/M | Output $/M | Approx. daily, uncached | Approx. monthly |
 |---|---|---|---|---|
@@ -220,7 +225,43 @@ Prices are Anthropic first-party list prices as of June 2026. They are illustrat
 
 **Sensitivity.** A 2x price rise on the chosen model doubles these figures, which at the Haiku tier moves monthly spend from roughly $2.5k to $5k. Prompt caching on the stable prefix cuts the input side substantially because cache reads are billed at a fraction of base input price; semantic caching removes repeated questions entirely. Nightly welfare briefs, ops summaries and offer generation are a few hundred calls a day and are negligible. The larger cost risk is abuse or a runaway loop on the guest chat, which is why per-user rate limits and hard budget caps exist.
 
-**Conclusion.** Against gate revenue at 15,000 visitors a day, GenAI spend is a rounding error. A price hike is uncomfortable, not fatal, and the policies above absorb it automatically. The risks that deserve architecture are **dependency** (availability, deprecation) and **quality drift**, which is why the capability contract, the portfolio and the evaluation loop are the core of this answer. Note which of those the spend figures justify: at a few thousand pounds a month, a gateway service with its own on-call rotation would cost more to own than the traffic it governs.
+**Conclusion.** The worked figures are not a revenue claim or a procurement quote; they show that GenAI is a bounded recurring cost that must be metered, rate-limited and capped. A price hike is uncomfortable, not fatal, because the capability contract, portfolio and evaluation gate provide an evaluated lower-cost route and finally a non-AI floor. Those are the risks that deserve architecture: **dependency** (availability and deprecation) and **quality drift**. A separately operated AI gateway remains an escalation option if the estate later requires two independent catalogues; it is not assumed necessary at this scale.
+
+## What the platform costs around the models
+
+The token model above prices the part of the bill that is exposed to a vendor. This section prices the part that is not, because "cost transparency" is meaningless if only one line item is ever costed.
+
+**The resource bill is derived, not guessed.** Every quantity below follows from the device inventory and publish rates worked in [03-edge-zone](architecture/03-edge-zone.md#capacity-what-those-devices-actually-generate):
+
+| Resource | At 5,000 visitors/day | At 15,000 visitors/day | Why it is this size |
+|---|---|---|---|
+| Event volume | 330,000/day, ~7/s while open (~3.8/s across 24 hours) | 400,000/day, ~9/s while open (~4.6/s across 24 hours) | Only the scan row scales with visitors; sensors and rides do not |
+| Raw event storage | ~99 MB/day, **36 GB/year** | ~120 MB/day, **44 GB/year** | 300-byte envelope. Five years fits in ~220 GB |
+| Object storage, compressed | ~7 GB/year | ~9 GB/year | Open table format, roughly 5:1 on JSON-shaped events |
+| Telemetry database | One managed Postgres instance with a time-series extension | Same instance, larger tier | The load is two orders of magnitude below what one instance serves |
+| Compute | Four containers on a managed runtime | Same, scaled out; Kubernetes only if [its trigger](delivery-plan.md#the-minimum-cloud-baseline) fires | Services are stateless |
+| Inbound bandwidth | ~17 kbit/s steady | ~25 kbit/s steady | Ingest is normally unbilled; egress is dashboards and the guest app |
+
+**What this section deliberately does not do is quote a rate card.** A precise infrastructure total would imply that every provider, region, support plan and discount had been re-quoted. They have not, and procurement must do that before commitment. An honest band is more useful than false precision.
+
+What can be said without inventing anything:
+
+- **The shape of this bill is "one small database, four containers, and tens of gigabytes a year."** At any major provider's published list prices that is a **low-hundreds-of-dollars-per-month** workload, not a thousands-per-month one. The uncertainty is the multiplier, not the order of magnitude.
+- **Token spend dominates infrastructure by roughly an order of magnitude once the guest guide is live.** Against the $2.5k–$12.6k a month in the table above, a few hundred dollars of infrastructure is noise. This is the finding that matters architecturally, and it is robust to the infrastructure estimate being wrong by a factor of three.
+- **That is why the cost levers in [ADR-014](adr/ADR-014-caching-and-batch-cost-levers.md) are all token levers** — prompt caching, semantic caching, batch, effort settings. Optimising the infrastructure bill would be optimising the wrong number.
+
+**Per visitor, as a function of the monthly bill.** The estate can substitute its own quotes:
+
+| | 5,000/day (1.83M visits/yr) | 15,000/day (5.48M visits/yr) |
+|---|---|---|
+| Infrastructure at $250/mo | $0.0016/visit | $0.0005/visit |
+| Infrastructure at $1,000/mo | $0.0066/visit | $0.0022/visit |
+| Tokens at $2,500/mo (Haiku tier) | $0.0164/visit | $0.0055/visit |
+| Tokens at $5,100/mo (Sonnet tier) | $0.0335/visit | $0.0112/visit |
+
+**Per visitor, without inventing a ticket price.** At 5,000 visits a day, the conservative combination shown above — $5,100/month for tokens and $1,000/month for infrastructure — is **about $0.0401 per visit**. The Haiku and $250/month scenario is about $0.018 per visit. At 15,000 visits a day those same scenarios are about $0.0134 and $0.0060 respectively. The per-visitor cost falls as the estate grows because the fixed edge and most sensor traffic do not scale with visitors.
+
+**What would change this conclusion.** Three things, in order of likelihood: guest-guide adoption far above the 25% assumed in the token model; abuse or a runaway loop on the guest chat (bounded by per-user rate limits and the hard cap); or a decision to retain CCTV-style video, which is not a function of this platform and would dominate every figure on this page ([03-edge-zone](architecture/03-edge-zone.md#capacity-what-those-devices-actually-generate)).
 
 ## What this decision costs
 
@@ -234,4 +275,4 @@ Choosing a single catalogue is a real trade and it is stated here rather than le
 | Inherited budget enforcement. The catalogue alerts, it does not stop | The cap is a small, testable consumer off the request path | A metering consumer we own, plus rate limits at the public API edge as the first line |
 | Cheap portability to a second cloud. Guardrails, inference profiles and batch jobs are catalogue-shaped | The expensive assets, prompts, eval sets, embeddings and traces, are ours and are portable | Catalogue-hosted agent, memory and knowledge-base features are avoided, so the surface to rebuild stays small |
 
-The escalation is documented and unglamorous: if dependence on one catalogue becomes unacceptable, whether commercially or after an outage the estate judges too long, the second-catalogue option in [ADR-006](adr/ADR-006-multi-provider-portfolio.md) is opened, and at that point the independent gateway in option D is reconsidered on its merits. The capability contract is what makes that a migration rather than a rewrite, and it exists either way.
+The escalation is documented and unglamorous: if dependence on one catalogue becomes unacceptable, commercially or after an outage beyond the estate's agreed tolerance, the second-catalogue option in [ADR-006](adr/ADR-006-multi-provider-portfolio.md) is opened, and at that point the independent gateway in option D is reconsidered on its merits. The capability contract is what makes that a migration rather than a rewrite, and it exists either way.

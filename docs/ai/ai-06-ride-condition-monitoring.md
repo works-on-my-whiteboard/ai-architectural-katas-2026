@@ -2,7 +2,7 @@
 
 ## Problem
 
-The 40 rides are historically important, 18th century, and have only recently passed inspection. A ride out of service loses revenue and disappoints guests (F6, F5); a ride that fails in use is unthinkable. The inspection regime is deterministic and stays exactly as it is. What the estate lacks is a way to tell inspectors which ride to look at first.
+The 40 rides are historically important, 18th century, and have only recently passed inspection. A ride out of service loses revenue and disappoints guests (brief F8; requirements F6.1); a ride that fails in use is unthinkable. The inspection regime is deterministic and stays exactly as it is. What the estate lacks is a way to tell inspectors which ride to look at first.
 
 ## Approach
 
@@ -71,22 +71,23 @@ Production:
 
 ## Conformance
 
-| Characteristic | How AI-6 honours it |
+| Property | How AI-6 honours it |
 |---|---|
+| **Invariant — life safety** | The score is an inspection priority only; inspectors retain authority to stop or clear a ride |
+| **Invariant — data integrity** | Inspection records are written only by inspectors |
+| **Invariant — security and privacy** | No personal data is involved |
 | Availability under partition | Scoring and thresholds run on the gateway |
 | Evolvability | Per-ride models are versioned artifacts deployed by registry |
 | Observability | Scores, evidence and inspection outcomes are all recorded together |
-| Data integrity | Inspection records are written only by inspectors |
 | Elastic scalability | Per-zone; adding rides adds sensors |
-| Cost transparency | Fixed sensor cost; no per-call spend |
-| Security and privacy | No personal data involved |
+| Cost transparency *(constraint)* | Fixed sensor cost; no per-call spend |
 
 ## Value
 
-- Inspectors spend their time on the rides most likely to need it, which finds faults earlier and cheaper.
-- Fewer unplanned closures, which protects revenue and the guest experience.
-- The safety regime is untouched, which is what the inspectors, the insurer and the judges will want to hear.
-- Estimate: avoiding a single week of unplanned closure on a popular ride covers the sensor cost for the whole park.
+- Inspectors get an ordered list instead of an undifferentiated one. That reordering is structural; whether it **finds faults earlier** is the hypothesis below.
+- **Hypothesis:** vibration departures from a ride's own baseline correlate with findings the inspection regime would otherwise catch later. On eighteenth-century rides with no baseline history, this is genuinely unknown until a season of data exists, and it may turn out that the machines are too individual for a useful signal. The test is flag-versus-finding agreement at every inspection, recorded whether it agrees or not.
+- The statutory safety and inspection regime is untouched; the model is only an evidence-backed inspection priority, and it can never stop or clear a ride.
+- **Break-even condition:** the sensor cost for the whole park is recovered if the advisory avoids roughly one week of unplanned closure on a popular ride. That is the bar it must clear, not a benefit already banked — and if the hypothesis above fails, the correct outcome is to keep the inspection regime exactly as it is and stop paying for the advisory.
 
 ## Related
 

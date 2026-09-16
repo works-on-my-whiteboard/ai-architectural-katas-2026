@@ -25,11 +25,13 @@ Forces:
 
 ## Decision
 
-Every ticket is a compact signed token (Ed25519) rendered as a QR code. The token carries: ticket ID, product type, validity window, group ID and group size for family passes, and a key ID. Gates hold the public keys and verify the signature offline. Gates also hold a small revocation list (cancelled or refunded ticket IDs) synced from the cloud via a retained MQTT topic whenever the link is up.
+Every ticket is a compact signed token (Ed25519) rendered as a QR code. The token carries: ticket ID, product type, validity window, admission scope and reuse policy, group ID and group size for family passes, and a key ID. Gates hold the public keys and verify the signature offline. Gates also hold a small revocation list (cancelled or refunded ticket IDs) synced from the cloud via a retained MQTT topic whenever the link is up.
 
-Scan events are published to the zone broker with QoS 1 and drained to the cloud, where the Ticketing service deduplicates re-scans and enforces single-use or day-pass rules. A family pass is a group token; each member's QR contains the group ID and a member index, and the gate allows up to group size distinct member indices per day.
+Scan events are published to the zone broker with QoS 1 and drained to the cloud, where the Ticketing service deduplicates re-scans and correlates cross-zone use. A single-use scope is refused by the local log at the same gateway, but can only be detected across gateways after reconciliation; permitted re-entry and ride/day-pass scopes are recorded rather than treated as fraud. A family pass is a group of distinct ticket IDs sharing a group ID and size, and the gate allows up to that number of distinct members per day.
 
 Payments are handled by a payment provider; only a payment reference is stored.
+
+Offline walk-up sales use a separate, low-privilege kiosk issuer key stored in that kiosk's secure element. Its `kid` is accepted only for approved walk-up products, the current operating-day validity window and a fixed daily cap; it cannot issue refunds, discounts, staff products or annual passes. The kiosk replays a tamper-evident sales journal to Ticketing on reconnect, which reconciles every signed `tid` and disables the issuer key on any cap or sequence anomaly. Gateways still hold public verification keys only and cannot mint tickets. The detailed custody and reconciliation protocol is in [Signed ticket format](../implementation/signed-ticket-format.md#offline-kiosk-delegation).
 
 ```mermaid
 sequenceDiagram
@@ -58,14 +60,15 @@ sequenceDiagram
 
 - A refund issued while a gate is offline is not enforced until the revocation list syncs.
 - Key rotation must be planned so old tokens still verify during their validity window.
-- A copied QR can be used at two gates in different zones before the scans reconcile; the reconciliation flags it after the fact.
+- A copied QR with a single-use scope can be used at two gates in different zones before the scans reconcile; the reconciliation flags it after the fact. This window is normally seconds online and may last for a partition.
+- A stolen or compromised offline kiosk can mint only its bounded daily allocation until its issuer key is revoked; secure-element custody, narrow product scope and journal reconciliation limit that exposure.
 
 ### Trade-off analysis
 
 | Quality attribute | Effect | Mitigation |
 |---|---|---|
 | Availability | Entry independent of cloud | Keys and revocation list retained on the broker |
-| Security | Signature stops forgery; replay across zones possible offline | Short validity windows, post-hoc reconciliation, staff alert on repeated use |
+| Security | Signature stops forgery; a single-use scope can replay across zones before reconciliation | Short validity windows, post-hoc reconciliation, staff alert on repeated use |
 | Consistency | Revocation is eventual | Refund policy states a short enforcement window |
 | Privacy | Minimal data on gate hardware | No names in the token; group ID is opaque |
 | Operability | Key rotation adds a process | Key ID in token; overlapping key validity |

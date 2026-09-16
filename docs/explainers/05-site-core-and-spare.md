@@ -45,7 +45,7 @@ Each zone sends independently. The sending travels over shared infrastructure.
 A pH probe in the piranha tank reads high ammonia.
 
 1. The probe sends to **Z4's gateway**, over a cable. The reading never touches the cloud.
-2. Z4's gateway checks its own rules and **fires the sounder and pages the keeper**, locally, in under a second.
+2. Z4's gateway checks its operational water-quality rules and **issues the local welfare alert and pages the keeper**, locally, in under a second.
 3. Z4's gateway puts a copy in **its own outbox** for the cloud.
 4. That copy travels Z4 to Z8 to cloud.
 
@@ -55,7 +55,7 @@ Steps 1 to 3 happen whatever else is broken. Step 4 is the only one that can fai
 
 | What fails | Effect |
 |---|---|
-| Z4's gateway | Only Z4 is affected. Z1 gates still admit guests, Z5 alarms still fire. Bring the spare from Z8 |
+| Z4's gateway | Only Z4 is affected. Z1 gates still admit guests, Z5's hard-wired containment and duress path still works, and Z5 operational alerts continue locally. Bring the spare from Z8 |
 | Z4's link to the core | Z4 keeps working completely: alarms, gates, counting. Its outbox fills. Other zones are unaffected |
 | Z8, the road | All seven zones keep working locally. All seven outboxes fill. Nothing reaches the cloud |
 | The cloud itself | Identical to Z8 failing, from a zone's point of view. Outboxes fill |
@@ -72,7 +72,7 @@ Yes and no, and the distinction is the interesting part of this note. "Independe
 
 | Sense of independent | Independent? | What it means |
 |---|---|---|
-| Operational autonomy | **Yes, completely** | Broker, alarm rules, ticket cache, buffer and vision are all local. A zone does its whole job with nothing else on the estate reachable |
+| Operational autonomy | **Yes, completely** | Broker, operational rules, ticket cache, buffer and vision are all local. A zone does its whole job with nothing else on the estate reachable |
 | Logical cloud connection | **Yes** | Each gateway bridges to the cloud IoT hub as its own MQTT client, with its own credentials, its own disk queue and its own replay position |
 | Physical transit | **No** | Every zone's traffic leaves the estate through Z8 |
 
@@ -106,7 +106,7 @@ For an estate with a small technical team, the operational saving is the argumen
 The reason it is tolerable here is that it is the precise scenario the architecture is already built to absorb. With Z8 down:
 
 - Gates keep admitting guests, because ticket signatures verify locally against cached keys and a revocation list (ADR-003)
-- Enclosure alarms keep firing and keepers keep being paged, because rules run on the zone gateway
+- Operational welfare alerts keep firing and keepers keep being paged because rules run on the zone gateway; containment and duress remain independent hard-wired circuits
 - Piranha counting keeps running, because the model is on the Z4 GPU and the video never needed to leave anyway (ADR-010)
 - Every zone buffers for 72 hours and drains in order when the core returns (ADR-002)
 
@@ -116,7 +116,7 @@ What genuinely degrades during a Z8 outage: dashboards and forecasts go stale, o
 
 ## Why the zone table marks it "(optional)"
 
-Because aggregation is a convenience, not a structural requirement. At a smaller site, or in a first phase, one zone gateway could carry the backhaul directly and the others could reach it, or a zone could have its own uplink. Z8 exists because it is the tidier answer at eight zones, not because the design collapses without it.
+Because aggregation is a convenience, not a structural requirement. At a smaller site, or in a first phase, one zone gateway could carry the backhaul directly and the others could reach it, or a zone could have its own uplink. Z8 exists because it is the tidier answer for the seven zones and their shared site core, not because the design collapses without it.
 
 Reading it as optional also makes the phasing obvious: the estate can build Z1 and Z4 first and add the central zone when the number of zones makes aggregation worth the rack.
 
@@ -128,7 +128,7 @@ One unit, **Vision class**, kept cold.
 
 **Cold, not hot.** It is not running and mirroring a zone; it is a configured unit on a shelf that takes over by having that zone's configuration and buffer restored onto it. Recovery is measured in the hour or two it takes to carry it to the cabinet and restore, not in seconds.
 
-That is a deliberate trade. A hot standby per zone would mean seven more industrial PCs, continuously powered and continuously synchronised, to protect against a failure whose consequence is one zone losing cloud connectivity while its local functions are moved to a replacement box. The ranked characteristics do not justify that spend; cost transparency is on the list too.
+That is a deliberate trade. A hot standby per zone would mean seven more industrial PCs, continuously powered and continuously synchronised, to protect against a failure whose consequence is one zone losing cloud connectivity while its local functions are moved to a replacement box. The ranked characteristics do not justify that spend, and cost transparency constrains how the rest are met. Note what is *not* being traded here: the spare covers a gateway's cloud-connectivity and local-processing role, and the life-safety path does not depend on the gateway at all, so a failed gateway never puts an invariant at risk.
 
 **What restores itself and what does not.** Most of a gateway's configuration comes back on its own, because rules, signing keys, revocation lists and model artifacts are all published to *retained* MQTT configuration topics. A freshly imaged spare connects and receives the current version of each without anyone editing a file.
 
@@ -148,7 +148,7 @@ This is the one place where the "no event is ever lost" claim has a real edge, a
 ## Where this is specified
 
 - [03-edge-zone.md](../architecture/03-edge-zone.md) — the zone table, the hardware classes including the spare, the connectivity table with the fibre and cellular failover rows, and the deployment diagram showing the path through the core
-- [ADR-001](../adr/ADR-001-edge-first-hybrid-architecture.md) — six to eight zones, gateways bridging to a cloud IoT hub with store and forward
+- [ADR-001](../adr/ADR-001-edge-first-hybrid-architecture.md) — seven physical zones plus the site core, gateways bridging to a cloud IoT hub with store and forward
 - [ADR-002](../adr/ADR-002-mqtt-topology-and-store-and-forward.md) — the disk queue, replay order and deduplication that make a core outage survivable
 - [04-data-flow.md](../architecture/04-data-flow.md) — the trace of an event through an outage and the drain on reconnect
 

@@ -38,11 +38,11 @@ Every generative capability is served from a four-step portfolio, and the steps 
 | 2 | Loss of the catalogue, the account or the commercial relationship | Outside the catalogue's control plane | An open-weight model (Llama, Qwen or Mistral class) on vLLM, in a separate account with a separate provider |
 | 3 | Total loss of generative AI | The estate's own services | FAQ search for the guide, templated numeric reports for briefs, rule-based offers |
 
-**Tier 1a and Tier 1b are not independent in account, billing or credentials.** The earlier gateway design required exactly that independence, and it was right to: two paths that share a control plane are one path with two names. Under this decision they share one, and the honest consequence is that everything above the model level fails together. The independence has therefore moved down a tier: **Tier 2 is no longer an optional continuity nicety, it is the only thing standing between a catalogue outage and Tier 3 for the whole estate.** It is funded, kept warm and drilled accordingly.
+**Tier 1a and Tier 1b are not independent in account, billing or credentials.** Two paths that share a control plane are one path with two names. The consequence is that everything above the model level can fail together. Independence therefore begins at Tier 2: **it is the continuity tier between a catalogue outage and Tier 3 for the whole estate.** It is funded, kept warm and drilled accordingly.
 
 Tier 2 is kept cheap by running the smallest model that passes the capability's minimum eval score, scaled to a small warm pool, with cold start tested monthly as part of the partition drill. It must not be deployed into the same cloud account as the catalogue, because an account-level problem is one of the scenarios it exists for. The estate's Z8 rack already houses a spare gateway and is a defensible future home for it; that variant additionally survives a backhaul cut, but only for traffic that never leaves the estate, so it is recorded as an option rather than the default.
 
-Tier 3 carries more weight under this decision than under the previous one and is exercised in every eval run so it never rots. A capability whose Tier 3 behaviour has not been designed and tested does not go live.
+Tier 3 is exercised in every evaluation run so it never rots. A capability whose Tier 3 behaviour has not been designed and tested does not go live.
 
 ```mermaid
 flowchart LR

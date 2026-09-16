@@ -6,7 +6,7 @@
 
 ## The short answer
 
-A zone gateway is a physical computer — a fanless industrial PC in a cabinet — installed in each part of the park. There are about eight of them. Every MQTT device nearby (scanner, sensor kit, feeder, camera, counter) connects to its zone gateway rather than to the internet.
+A zone gateway is a physical computer — a fanless industrial PC in a cabinet — installed in each of the park's seven operating zones, with one cold spare at the site core. Every MQTT device nearby (scanner, sensor kit, feeder, camera, counter) connects to its zone gateway rather than to the internet.
 
 It is not a router and not a protocol converter. It is the machine that holds the logic the zone needs to keep running with nothing else reachable.
 
@@ -28,9 +28,9 @@ ADR-001 considered three shapes and rejected two:
 |---|---|---|
 | A. Cloud-centric | Thin devices publish straight to a cloud IoT hub; all logic runs in the cloud | Fails the connectivity constraint outright. Every gate scan, alarm and keeper action becomes a cloud round trip on a link known to be unreliable |
 | B. Edge-heavy | Everything runs on estate hardware; the cloud is a backup | Robust in the field, but 3x visitor growth means buying and operating more on-site compute every season, analytics tooling is weak, and access to frontier AI models is awkward |
-| C. Edge-first hybrid | Zone gateways run local validation, alarms and buffering; the cloud owns ticketing, analytics, AI and long-term data | **Chosen.** Each side degrades gracefully without the other |
+| C. Edge-first hybrid | Zone gateways run local validation, operational welfare alerts and buffering; the cloud owns ticketing, analytics, AI and long-term data | **Chosen.** Each side degrades gracefully without the other |
 
-The word doing the work in option C is *gracefully*. Cloud unreachable: gates admit, alarms fire, keepers work, data queues. Edge gateway dead: that one zone falls back to its spare while the rest of the estate and all cloud services continue.
+The word doing the work in option C is *gracefully*. Cloud unreachable: gates admit, operational alerts fire, keepers work and data queues; containment and duress remain on their separate hard-wired panel path. Edge gateway dead: that one zone falls back to its spare while the rest of the estate and all cloud services continue.
 
 ## What actually runs on the box
 
@@ -39,8 +39,8 @@ Five things, and the list is deliberately short:
 | Component | What it does | Why it cannot live in the cloud |
 |---|---|---|
 | Local MQTT broker | Every device in the zone publishes here; keeper tablets subscribe here | Devices must reach a broker over a cable 50 m away, not a link 300 km away |
-| Alarm rule engine | Water chemistry out of band, venomous enclosure door open, feeder underdispensed, device gone silent | An alarm that waits for a network is not an alarm |
-| Ticket validation cache | Signing keys, validity windows and a revocation list, so a scanner verifies a signature locally | Entry must work with the backhaul down (ADR-003) |
+| Operational rule engine | Water chemistry out of band, feeder underdispensed, device gone silent | An operational alert that waits for a network is not an alert. Venomous containment and duress are hard-wired separately |
+| Ticket validation cache | Signing keys, validity windows, admission-scope rules and a revocation list, so the zone-gateway validator verifies a ticket locally | Entry must work with the backhaul down (ADR-003) |
 | Store-and-forward buffer | Disk queue sized for 72 hours of zone events at peak rate | It exists precisely because the link is not there |
 | Edge vision (Z4, Z5 only) | Cameras feed RTSP into a GPU module; it emits counts, confidence and sampled frames | Video bandwidth would not survive the backhaul, and video should not leave the estate at all (ADR-010) |
 
@@ -52,7 +52,7 @@ Note what is *not* on the list: no ticket sales, no CRM, no analytics warehouse,
 flowchart LR
   subgraph Zone["One zone"]
     DEV["MQTT devices<br/>PoE, Ethernet, LoRaWAN"] --> GW
-    GW["Zone gateway<br/>broker · rules · ticket cache · buffer · vision"] --> ALARM["Sounders, keeper pagers"]
+    GW["Zone gateway<br/>broker · rules · ticket cache · buffer · vision"] --> ALARM["Operational welfare alert<br/>keeper tablet, local sounder"]
     GW --> TAB["Keeper tablets"]
   end
   GW -. "MQTT bridge over private LTE or fibre<br/>store and forward" .-> CLOUD["Cloud"]
@@ -74,7 +74,7 @@ The boundaries are not arbitrary; each zone has a stated reason for existing sep
 | Z5 Terrestrial House | Land enclosures including the venomous collection | Environmental alarms, activity cameras, keeper safety |
 | Z6 Gardens and Plants | Carnivorous plants, walks, outdoor enclosures | Low-rate sensors over long distances: LoRaWAN territory |
 | Z7 Back of House | Kitchens, feed store, vet room, workshop | Feed weights, vet records, energy metering |
-| Z8 Central | Site core, backhaul aggregation, spare gateway | Aggregates backhaul and holds the hot spare |
+| Z8 Central | Site core, backhaul aggregation, spare gateway | Aggregates backhaul and holds the cold spare; it is not an operating zone |
 
 Two patterns are visible in that table. **Cable distance** splits the rides into two zones. **Criticality and hardware** separate the animal houses, because they are the places where a partition has welfare consequences and where a GPU is required.
 
@@ -88,7 +88,7 @@ Only three, so that spares and configuration stay simple:
 | Vision | Z4, Z5 | Standard plus a Jetson-class GPU module |
 | Spare | Z8 | One Vision-class unit, cold, configured to take over any zone by restoring its config and buffer |
 
-The spare is the availability answer for the gateway itself. A Vision-class spare can stand in for a Standard zone; the reverse would not work, which is why the spare is the more capable class.
+The standard class is deliberately uniform across non-vision zones: it keeps the hardened image, configuration and replacement procedure interchangeable rather than sizing each box to its telemetry rate. The spare is the availability answer for the gateway itself. A Vision-class spare can stand in for a Standard zone; the reverse would not work, which is why the spare is the more capable class.
 
 ## How devices reach it
 
@@ -105,20 +105,22 @@ Guest WiFi is never on this path. That is the whole point.
 
 The sync is **two-way and retained**.
 
-Alarm rule definitions, ticket signing keys, revocation lists and ML model artifacts are all authored in the cloud and published to *retained* MQTT configuration topics. A gateway that has been offline for a day reconnects and immediately receives the latest version of each, without anyone visiting the cabinet.
+Operational-rule definitions, ticket verification keys (including the public half of an offline-kiosk issuer key), revocation lists and ML model artifacts are all authored in the cloud and published to *retained* MQTT configuration topics. A gateway that has been offline for a day reconnects and immediately receives the latest version of each, without anyone visiting the cabinet.
 
 This is what stops the design becoming eight snowflake servers that drift apart and have to be maintained by hand. The gateway is best understood as **a cache with a rule engine**: the cloud stays the source of truth for rules, keys and models, and the gateway simply never blocks on reaching it.
 
 ## What it buys
 
-| Ranked characteristic | How the gateway carries it |
+| Base property | How the gateway carries it |
 |---|---|
-| 1. Availability under partition | Gate validation, enclosure alarms and keeper tools all work with the cloud unreachable |
-| 4. Data integrity | 72-hour buffer plus per-device sequence numbers means no event lost and none double-counted on replay |
-| 5. Elastic scalability | The cloud scales to 3x elastically; the edge scales by **adding a zone**, not by resizing one |
-| 7. Security and privacy | Video never crosses the zone boundary; only counts, confidence and sampled frames do |
+| **Invariant — life safety** | Containment and duress bypass the gateway through the hard-wired alarm panel; the gateway cannot affect either path |
+| **Invariant — data integrity** | 72-hour buffer plus per-device sequence numbers means no event lost and none double-counted on replay |
+| **Invariant — security and privacy** | Video never crosses the zone boundary; only counts, confidence and sampled reviewed frames do |
+| Availability under partition | Gate validation and operational welfare alerts work with the cloud unreachable |
+| Elastic scalability | The cloud scales to 3x elastically; the edge scales by **adding a zone**, not by resizing one |
+| Cost transparency *(constraint)* | A common hardware image and one cold spare make the edge cost visible and bounded |
 
-The fitness functions attached to those characteristics are specific and testable: gate validation succeeds with the backhaul down for 8 hours, an enclosure alarm reaches a keeper within 30 seconds with the cloud unreachable, a gateway buffers 72 hours of telemetry without loss.
+The fitness functions attached to those properties are specific and testable: gate validation succeeds with the backhaul down for 8 hours, an operational welfare alert reaches a keeper within 30 seconds with the cloud unreachable, and a gateway buffers 72 hours of telemetry without loss.
 
 ## Common misreadings
 

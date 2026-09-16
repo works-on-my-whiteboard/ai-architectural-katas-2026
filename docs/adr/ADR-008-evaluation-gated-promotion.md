@@ -6,7 +6,7 @@ Accepted, 2026-09-16. Supersedes / Superseded by: none.
 
 ## Context
 
-Swapping models is only safe if the replacement can be measured. Generative output is non-deterministic, so conventional unit tests do not tell you whether a new model or prompt is better, worse or merely different. The judges ask both how the design confirms that AI works and how it detects misbehaviour in production.
+Swapping models is only safe if the replacement can be measured. Generative output is non-deterministic, so conventional unit tests do not tell you whether a new model or prompt is better, worse or merely different. The estate needs both pre-release evidence and production detection of misbehaviour.
 
 Forces:
 
@@ -19,7 +19,7 @@ Forces:
 
 | Option | Summary | Why not (or why partially) |
 |---|---|---|
-| Manual spot checks before release | Someone reads a few outputs | Not repeatable, not comparable across models, does not scale to fourteen capabilities |
+| Manual spot checks before release | Someone reads a few outputs | Not repeatable or comparable across models, and does not scale across the capability catalogue |
 | Offline evals only | Golden-set scoring before release, nothing after | Misses drift and real-traffic surprises |
 | Immediate full cutover after eval | Promote on offline pass | Real guests see any gap between the golden set and reality |
 | Offline eval, shadow, canary, automatic rollback | Chosen | Proportionate confidence at each step |

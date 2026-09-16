@@ -86,7 +86,7 @@ If not, there are exactly three moves: split the zone, change the link type, or 
 ## Where this is specified
 
 - [03-edge-zone.md](../architecture/03-edge-zone.md) — the zone table with the reason each zone exists, per-zone device estimates, the connectivity table and the wiring diagram for one zone
-- [ADR-001](../adr/ADR-001-edge-first-hybrid-architecture.md) — the decision to divide the estate into six to eight zones
+- [ADR-001](../adr/ADR-001-edge-first-hybrid-architecture.md) — the decision to divide the estate into seven physical zones plus the site core
 - [ADR-002](../adr/ADR-002-mqtt-topology-and-store-and-forward.md) — devices connect to the zone broker over wired Ethernet or PoE where fixed, and over LoRaWAN via a gateway adapter for low-rate sensors; guest WiFi is never used for devices
 
 Related explainers: [zone gateways](01-zone-gateways.md), the machine at the end of every one of these runs; [the estate-to-cloud path](02-estate-to-cloud-path.md), the link that starts where these end.

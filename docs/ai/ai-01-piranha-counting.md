@@ -2,14 +2,14 @@
 
 ## Problem
 
-The brief asks for population checks on the jumping piranha collection (F4) and, more broadly, for careful monitoring of an animal collection whose care is costly (F3). Counting fast, shoaling fish by eye is unreliable, and manual tank counts are slow and stressful for the animals. A count that is wrong in either direction has a cost: unnoticed losses point to a health or water-quality problem that will spread; unnoticed breeding means overstocking and aggression. The estate needs a trustworthy count, a trend, and an early warning when the population moves.
+The brief asks for population checks on the jumping piranha collection (brief F5, requirements F4.1–F4.3) and, more broadly, for careful monitoring of an animal collection whose care is costly (brief F3, F9). Counting fast, shoaling fish by eye is unreliable, and manual tank counts are slow and stressful for the animals. A count that is wrong in either direction has a cost: unnoticed losses point to a health or water-quality problem that will spread; unnoticed breeding means overstocking and aggression. The estate needs a trustworthy count, a trend, and an early warning when the population moves.
 
 ## Approach
 
 - Two to three fixed cameras per tank at different angles, wired over PoE to the aquatic zone gateway.
 - An owned detection model (YOLO-class, trained on labelled frames from these tanks) plus multi-object tracking. Counting runs continuously as a trend and is anchored at feeding time, when the shoal clusters and occlusion is at its lowest.
 - Each camera produces a per-frame count; the gateway fuses the views over a feeding window into a single population estimate with a confidence interval. The output is "38, likely 36 to 40", never a bare number.
-- The gateway publishes the estimate, interval and a handful of sampled frames to the welfare service. The full video stays on the edge and is overwritten after a retention window.
+- The gateway publishes the estimate, interval and a handful of sampled frames to the welfare service. Those frames are **blurred on the gateway before they are published and reviewed before they are retained**, matching the data policy in [04-data-flow](../architecture/04-data-flow.md); an unblurred frame has no path across the bridge. The full video stays on the edge and is overwritten after a retention window.
 - A keeper performs a manual count monthly. The system reconciles its estimate with the manual count and records the disagreement. Persistent disagreement triggers relabelling and retraining.
 - The same pipeline extends to other aquatic displays once the piranha tank has proven it.
 
@@ -89,22 +89,23 @@ Production:
 
 ## Conformance
 
-| Characteristic | How AI-1 honours it |
+| Property | How AI-1 honours it |
 |---|---|
+| **Invariant — life safety** | A count is an observation for keepers; it cannot raise, silence or alter any containment, duress or emergency response |
+| **Invariant — data integrity** | Estimates are recorded with interval and model version; the manual count is a separate record |
+| **Invariant — security and privacy** | Video never leaves the zone; only counts and sampled reviewed frames do |
 | Availability under partition | Runs on the gateway; alerts delivered over the zone network |
 | Evolvability | Model is a versioned artifact swapped by registry, not code |
 | Observability | Confidence, interval and drift metrics published per feeding |
-| Data integrity | Estimates are recorded with interval and model version; the manual count is a separate record |
 | Elastic scalability | Per-zone inference; adding tanks adds cameras, not cloud load |
-| Cost transparency | Fixed edge hardware; no per-call spend |
-| Security and privacy | Video never leaves the zone; only counts and sampled frames do |
+| Cost transparency *(constraint)* | Fixed edge hardware; no per-call spend |
 
 ## Value
 
-- Replaces a stressful monthly manual count with a continuous trend and keeps the manual count as a check, not the only source.
-- Detects losses or breeding within days rather than weeks, which lowers vet cost and prevents overstocking.
+- Replaces a stressful monthly manual count with a continuous trend and keeps the manual count as a check, not the only source. This one is structural rather than predicted: counting every feeding instead of once a month is a property of the design.
+- **Hypothesis:** a population change becomes visible in days rather than at the next manual count, which would lower vet cost and prevent overstocking. The size of that lead time is unknown before deployment and is exactly what the Phase 2 evidence gate measures — interval coverage against the monthly manual count, with disagreement trended rather than discarded.
 - Reusable for other aquatic displays and, with retraining, for terrestrial enclosures.
-- Estimate: at a few hundred pounds per camera and one GPU module per aquatic zone, the hardware is a one-off cost far below a single serious water-quality incident.
+- **Cost is a one-off; benefit is not yet quantified.** A few hundred pounds per camera plus one GPU module for the aquatic zone is capital the estate spends once, against no per-call cost at all because the model is owned and runs at the edge. Whether it prevents an incident that would have cost more is the hypothesis above, not a result — and the estate should treat the hardware as the price of *measuring* the collection, which it currently cannot do.
 
 ## Related
 

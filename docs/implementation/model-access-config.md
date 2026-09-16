@@ -16,7 +16,7 @@ requires:
   min_context_tokens: 32000
 slo:
   p95_latency_ms: 2500
-  max_cost_per_1k_requests_usd: 3.00
+  max_cost_per_1k_requests_usd: 4.00
 quality:
   golden_set: golden/chat-guide-v7.jsonl
   min_eval_score: 0.85
@@ -76,7 +76,7 @@ circuit_breaker:
   window_seconds: 60
   open_seconds: 120
 budget:
-  plan_usd_per_day: 90
+  plan_usd_per_day: 90              # 22,500 planned turns/day × $4 / 1,000
   warn_at: 1.2
   auto_shift_at: 1.5
   hard_cap_usd_per_day: 300
@@ -88,7 +88,7 @@ effort: medium
 refresh_ttl_seconds: 30             # how fast an edit reaches every service
 ```
 
-Only candidates whose registry `eval_scores` meet the contract are eligible; the library refuses to call a candidate that has not passed. `refresh_ttl_seconds` is the whole rollout mechanism: an edit here reaches every service within half a minute and is rolled back the same way.
+Only candidates whose registry `eval_scores` meet the contract are eligible; the library refuses to call a candidate that has not passed. The $90 plan is the contract ceiling applied to planned volume, rather than the $84 illustrative Haiku forecast in [the worked cost model](../uncertainty.md#worked-cost-model); the difference is deliberate headroom. `refresh_ttl_seconds` is the whole rollout mechanism: an edit here reaches every service within half a minute and is rolled back the same way.
 
 ## Guardrail policy
 

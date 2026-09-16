@@ -2,13 +2,15 @@
 
 ## Problem
 
-The estate must grow visitor numbers, get more of them to return, and become more profitable, or the family is back in the garden gnome business (F5, F6). Today it cannot tell which visitors are likely to come back, which offers work, or whether its prices match demand. It needs to understand its guests and act on that understanding without alienating them.
+The estate must grow visitor numbers, get more of them to return, and become more profitable, or the family is back in the garden gnome business (brief F6, F7 and F8; requirements F5.4, F5.5). Today it cannot tell which visitors are likely to come back, which offers work, or whether its prices match demand. It needs to understand its guests and act on that understanding without alienating them.
 
 ## Approach
 
 - Owned propensity models score each consented guest for likelihood to return and for responsiveness to memberships, family passes and seasonal events. Inputs are visit history, ticket type, app behaviour and the attractions visited. Guests who have not consented are treated as an anonymous segment.
 - Off-peak pricing suggestions: an owned demand-elasticity model proposes price adjustments for quiet days and slots, using the forecast from AI-3. Hard guardrails apply: price floors and caps, no per-person or per-segment pricing, changes published in advance. A revenue manager approves every change; nothing goes live automatically.
 - Post-visit recap and offers: overnight batch jobs assemble each consented guest's visit (attractions seen, favourite animal, photos they opted into) and call the `generate.offer` capability to write a short recap and a relevant offer from an approved offer catalogue. The `classify.sentiment` capability scores reviews and support messages to detect unhappy guests for a service recovery offer.
+- **Redaction before routing.** The batch job passes pseudonymised records: the model receives visit facts and an offer identifier, never a name, email, address or account identifier. The model access layer applies deterministic redaction and tokenisation before it selects a candidate, so the payload is stripped whichever tier serves it, including the self-hosted Tier 2 that sits outside the catalogue ([ADR-012](../adr/ADR-012-llm-observability-and-kill-switches.md)). Re-identification happens in the Engagement service after the text returns, never in the prompt.
+- **Consent is re-checked at send time.** Scoring-time consent is not sufficient: a guest may withdraw between the overnight batch and the morning send, and the withdrawal must win. The send step re-reads the consent flag immediately before dispatch and drops the message if it has changed, which is the behaviour [traceability](../traceability.md) records as the evidence for F5.4.
 - Every generated message is checked for grounding (only facts from the visit record and the offer catalogue) and tone before send. Messages that fail are dropped and reported, never sent.
 - Outcomes (opens, redemptions, returns) flow back as labels for the propensity models and as an offline eval set for the content.
 
@@ -24,13 +26,16 @@ flowchart TB
   PM --> SEG["Segments and offer eligibility"]
   SEG --> BATCH["Nightly batch job"]
   VR["Visit record and approved offer catalogue"] --> BATCH
-  BATCH --> GWY["Capability generate.offer, batch pricing"]
+  BATCH --> RED["Deterministic redaction and tokenisation<br/>before candidate selection"]
+  RED --> GWY["Capability generate.offer, batch pricing"]
   GWY -->|"provider healthy"| MSG["Recap and offer drafts"]
   GWY -->|"all tiers down or budget cap"| TPL["Templated recap from segment rules"]
   MSG --> CHK["Grounding and tone check"]
-  CHK -->|"pass"| SEND["Send"]
+  CHK -->|"pass"| CONSENT{"Consent still valid<br/>at send time?"}
   CHK -->|"fail"| DROP["Drop and report"]
-  TPL --> SEND
+  TPL --> CONSENT
+  CONSENT -->|"yes"| SEND["Re-identify and send"]
+  CONSENT -->|"withdrawn"| DROP
   SEND --> OUT["Opens, redemptions, returns"]
   OUT -->|"labels"| PM
 ```
@@ -82,21 +87,22 @@ Production:
 
 ## Conformance
 
-| Characteristic | How AI-5 honours it |
+| Property | How AI-5 honours it |
 |---|---|
+| **Invariant — life safety** | Offers and propensity scores cannot control safety functions, access control or emergency operations |
+| **Invariant — data integrity** | Prices change only through the ticketing service after approval; messages are generated from the record, never edit it |
+| **Invariant — security and privacy** | Consent-gated; no per-person pricing; PII never leaves estate systems unredacted |
 | Availability under partition | Batch in the cloud; no dependency on the estate link |
 | Evolvability | Owned models are registry artifacts; content names a capability |
 | Observability | Outcome metrics per segment with a permanent holdout |
-| Data integrity | Prices change only through the ticketing service after approval; messages are generated from the record, never edit it |
 | Elastic scalability | Overnight batch sized to the guest base |
-| Cost transparency | Batch route at reduced price; own budget for `generate.offer` |
-| Security and privacy | Consent-gated; no per-person pricing; PII never leaves our systems unredacted |
+| Cost transparency *(constraint)* | Batch route at reduced price; own budget for `generate.offer` |
 
 ## Value
 
 - Turns one-off visitors into members and repeat visitors with offers that reflect what they actually did.
 - Raises revenue on quiet days without alienating guests, because pricing is transparent and human-approved.
-- Estimate: a few percentage points of additional return visits at 15,000 visitors a day is a large annual revenue gain against a batch feature that costs a few hundred pounds a month to run.
+- **Break-even is measured, not forecast:** the capability remains within its configured budget until a holdout comparison can show incremental contribution after offer cost. The brief supplies neither ticket price nor gross margin, so the design does not invent the return-visit uplift required to pay for it. A material gain remains an upside case, not an expected result.
 
 ## Related
 

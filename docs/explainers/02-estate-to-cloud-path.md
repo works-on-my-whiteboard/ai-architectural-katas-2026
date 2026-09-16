@@ -45,15 +45,15 @@ That assumption produces four concrete responses:
 | Disk-queued MQTT bridge | Each zone gateway bridges to the cloud hub through a local disk queue sized for 72 hours. A drop fills a buffer; a reconnect drains it in publication order. Consumers deduplicate on device identifier and sequence number | ADR-002 |
 | Offline ticket validation | Entry does not use the path at all. Ed25519-signed tickets verify locally against cached keys and a revocation list | ADR-003 |
 | Edge vision | Vision models run on the zone gateway. The path carries counts, confidence and sampled frames — kilobytes — instead of video — gigabytes | ADR-010 |
-| Edge alarm rules | Water chemistry, door contacts and feeder faults are evaluated locally and page a keeper directly | 03-edge-zone.md |
+| Edge operational rules | Water chemistry and feeder faults are evaluated locally and page a keeper directly; containment contacts use the separate hard-wired alarm panel | 03-edge-zone.md |
 
 The shape of all four is the same: **nothing critical waits on the path.**
 
 ## The failure case, concretely
 
-The sequence diagram in [04-data-flow.md](../architecture/04-data-flow.md) traces it. Backhaul down for several hours: devices keep publishing to the local broker, alarms keep firing, gates keep admitting, the gateway keeps producing 15-minute occupancy buckets, and the bridge queue grows. Backhaul restored: the queue drains in order, the cloud stream processor recomputes what it can from replayed raw events and trusts gateway-computed buckets otherwise.
+The sequence diagram in [04-data-flow.md](../architecture/04-data-flow.md) traces it. Backhaul down for several hours: devices keep publishing to the local broker, operational alerts keep firing, gates keep admitting, the gateway keeps producing 15-minute occupancy buckets, and the bridge queue grows. Containment and duress stay on their independent hard-wired path. Backhaul restored: the queue drains in order, the cloud stream processor recomputes what it can from replayed raw events and trusts gateway-computed buckets otherwise.
 
-The result is that an outage leaves **a complete history that arrived late**, not a gap. That distinction is why data integrity can be ranked fourth and still be honoured.
+The result is that an outage leaves **a complete history that arrived late**, not a gap. That distinction is how the data-integrity invariant is upheld under a partition.
 
 ## What it costs
 

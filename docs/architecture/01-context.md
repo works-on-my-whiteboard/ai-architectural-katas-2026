@@ -68,6 +68,7 @@ flowchart TB
 ## Related
 
 - [02-containers.md](02-containers.md)
+- [08-cloud-deployment.md](08-cloud-deployment.md)
 - [05-characteristics.md](05-characteristics.md)
 - [ADR-001 Edge-first hybrid architecture](../adr/ADR-001-edge-first-hybrid-architecture.md)
 - [ADR-006 Multi-provider portfolio](../adr/ADR-006-multi-provider-portfolio.md)

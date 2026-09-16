@@ -2,7 +2,7 @@
 
 ## Problem
 
-The estate has no real idea which parts are most popular, so it cannot tell where to invest or where to deploy staff (F2). Growth to 15,000 visitors a day will make guesswork expensive: overstaffed quiet corners and understaffed queues both cost money and return visits (F5, F6). The estate needs to know where people are now, where they will be tomorrow, and how to place staff accordingly.
+The estate has no real idea which parts are most popular, so it cannot tell where to invest or where to deploy staff (brief F2; requirements F2.1–F2.5). Growth to 15,000 visitors a day will make guesswork expensive: overstaffed quiet corners and understaffed queues both cost money and return visits (brief F6, F7 and F8). The estate needs to know where people are now, where they will be tomorrow, and how to place staff accordingly.
 
 ## Approach
 
@@ -80,21 +80,22 @@ Production:
 
 ## Conformance
 
-| Characteristic | How AI-3 honours it |
+| Property | How AI-3 honours it |
 |---|---|
+| **Invariant — life safety** | The recommendation has no authority over containment, duress, ride clearance or emergency response |
+| **Invariant — data integrity** | Scans are idempotent events; rosters are approved by a manager before they take effect |
+| **Invariant — security and privacy** | Counters are anonymous; no device tracking or faces enter the model |
 | Availability under partition | Capture is on the edge; analysis is batch and tolerant of delay |
 | Evolvability | Forecast and optimiser are versioned artifacts; the brief names a capability |
 | Observability | Forecast error and edit rate are first-class metrics |
-| Data integrity | Scans are idempotent events; rosters are approved by a manager before they take effect |
 | Elastic scalability | Batch in the cloud; adding attractions adds counters |
-| Cost transparency | `explain.ops` is one call a day per site; counters are fixed cost |
-| Security and privacy | Counters are anonymous; no device tracking, no faces |
+| Cost transparency *(constraint)* | `explain.ops` is one call a day per site; counters are fixed cost |
 
 ## Value
 
 - Ends the guesswork about which parts of the estate are popular, which directs investment.
-- Puts staff where queues will be, which shortens waits and lifts return visits.
-- Estimate: a single percentage point of staffing efficiency across a workforce sized for 15,000 visitors a day is a material annual saving, and shorter queues are the cheapest retention lever the estate has.
+- Puts staff where queues will be, which shortens waits. The onward link from shorter waits to more return visits is plausible and widely assumed, but it is not something this design measures directly; what it measures is forecast error and realised queue outcomes.
+- **Break-even, stated as a condition rather than a result.** The feature's running cost is a batch forecast and a daily explanation, measured in tens of pounds a month. It pays for itself if it improves staffing efficiency by a fraction of a percentage point against a workforce sized for 15,000 visitors a day. Whether it does is measured by roster acceptance and by forecast error against a seasonal-naive baseline, not assumed — and the Phase 3 gate does not pass on a forecast that fails to beat the baseline.
 
 ## Related
 
@@ -102,4 +103,5 @@ Production:
 - [ADR-013 Privacy-preserving footfall](../adr/ADR-013-privacy-preserving-footfall-and-consent.md)
 - [ADR-011 Human in the loop](../adr/ADR-011-human-in-the-loop.md)
 - [ADR-005 Model access and capability contracts](../adr/ADR-005-model-access-and-capability-contracts.md)
+- [AI-8 Simulation gym](ai-08-simulation-gym.md), which models the estate as it might be rather than forecasting it as it is
 - [AI overview](00-ai-overview.md), [Data flow](../architecture/04-data-flow.md), [AI-5](ai-05-retention-and-revenue.md)

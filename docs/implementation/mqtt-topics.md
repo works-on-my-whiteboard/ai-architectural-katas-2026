@@ -74,7 +74,7 @@ Schema sketch:
 | `quality` | `good`, `suspect`, `bad`, `calibrating` | yes | Set by the device or gateway; suspect values are stored but not alarmed on |
 | `meta` | object | no | Firmware, calibration, model version and similar |
 
-Compound signals such as ticket scans and audit frames extend `value` with their own fields; the scan payload is defined in [signed-ticket-format.md](signed-ticket-format.md). Audit frames carry a reference to an object stored on the gateway plus a blurred JPEG under a size cap, not raw video.
+Compound signals such as ticket scans and audit frames extend `value` with their own fields. A `gate/scan` value contains `scan_id`, `tid`, `scp`, `gate_id`, gateway time, and the allow-or-deny decision, so the cloud can deduplicate delivery and reconcile cross-zone single-use conflicts; the token is defined in [signed-ticket-format.md](signed-ticket-format.md). Audit frames carry a reference to an object stored on the gateway plus a blurred JPEG under a size cap, not raw video.
 
 ## Cloud bridge
 
@@ -88,9 +88,27 @@ The zone bridge forwards topics unchanged and adds two things:
 
 Authentication is per-gateway mTLS to the cloud hub and per-device certificates to the zone broker, with ACLs restricting each device to its own `asset-id` prefix and each gateway to its own zone prefix.
 
+## Device identity and lifecycle
+
+A few hundred cheap devices spread across a public estate are a security perimeter, not an assortment of trusted sensors. A scanner that can publish a welfare alarm, or a temperature probe that can publish a ticket scan, would make every downstream fact untrustworthy. The topic ACLs above are the enforcement; this is the lifecycle that issues and withdraws the identities behind them.
+
+| Stage | What happens | Why |
+|---|---|---|
+| Provisioning | Each device is registered against its `asset-id` and zone before deployment, and receives a unique client certificate. No shared credentials, no default passwords | A per-device identity is what makes an ACL meaningful and a compromise containable |
+| Authorisation | The broker ACL restricts the device to publishing under its own `asset-id` prefix and subscribing only to the config topics it needs | A sensor cannot impersonate a scanner, and no device can publish on behalf of another |
+| Attestation on connect | Certificate validity and expiry are checked; a birth message records firmware version and configuration hash on a retained status topic | The fleet's actual state is observable rather than assumed |
+| Firmware update | Signed images published to the device's config topic; the device verifies the signature before applying and reports the new version. Updates are staged by zone, never fleet-wide at once | An unsigned update path is a route into the operations network; staging keeps a bad image from taking out every zone |
+| Rotation | Certificates have a bounded lifetime and are renewed on a schedule; renewal failure raises a fleet alert rather than silently expiring at a gate | An expired certificate on a gate scanner is an admission outage |
+| Revocation | A lost, stolen or decommissioned device is revoked at the broker and its `asset-id` retired; the retained status topic is cleared | Physical theft of a device is likely on a public estate over ten years |
+| Decommissioning | The asset is marked retired in the register, its topics stop being accepted, and its history is retained | Historical facts stay valid even though the device is gone |
+
+Two constraints follow from the estate rather than from good practice generally. Devices on LoRaWAN cannot carry the same certificate machinery as a PoE device, so they join through the network server with per-device keys and their data is treated as lower-trust: it may raise an advisory, never an alarm on its own. And because a gateway may be offline when a revocation is issued, revocations are published to a retained config topic, so a gateway that reconnects after a week applies the current list rather than a stale one — the same mechanism the ticket revocation list uses ([signed-ticket-format.md](signed-ticket-format.md)).
+
+This section is the response to inferred requirement I28, and it carries the device half of the [security-and-privacy invariant](../architecture/05-characteristics.md#invariant-3-security-and-privacy).
+
 ## Why not Sparkplug B by default
 
-Sparkplug B gives a standard birth and death certificate model, a compact protobuf encoding and a built-in sequence number, and it is well supported by industrial brokers. It was not chosen as the default because its topic namespace is fixed around group, edge node and device and does not express the estate's zone and asset vocabulary naturally, its metric-centric payload is awkward for compound values such as counts with confidence intervals and ticket scans, and the JSON envelope above is readable by every tool the team and the judges will use. If a device vendor ships Sparkplug B only, the gateway translates it into this scheme; the two can coexist behind the bridge.
+Sparkplug B gives a standard birth and death certificate model, a compact protobuf encoding and a built-in sequence number, and it is well supported by industrial brokers. It was not chosen as the default because its topic namespace is fixed around group, edge node and device and does not express the estate's zone and asset vocabulary naturally, its metric-centric payload is awkward for compound values such as counts with confidence intervals and ticket scans, and the JSON envelope above is readable by ordinary operational tooling. If a device vendor ships Sparkplug B only, the gateway translates it into this scheme; the two can coexist behind the bridge.
 
 ## Related
 

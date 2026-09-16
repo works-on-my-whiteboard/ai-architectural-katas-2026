@@ -1,4 +1,6 @@
-# Von Digitalis Estates: Brief Analysis and Solutioning
+# Working solutioning notes — not part of the submitted architecture
+
+> These are retained rough notes from the design process. They are deliberately unlinked from the submission reading path; the current architecture is in the README, ADRs and architecture views. Where these notes disagree with them, the current documents govern.
 
 
 ## 1. What the brief is really asking
@@ -76,6 +78,9 @@ Required deliverables: short overview narrative, comprehensive and targeted diag
 | C. Edge-first hybrid, event-driven | Zone gateways run local safety, validation and buffering; cloud owns analytics, ticketing, AI, and long-term data | Meets every constraint; each side degrades gracefully without the other | **Recommended** |
 
 ### 3.2 Architectural characteristics (rank these and put them in the README)
+
+> **Superseded — kept as a record of the working.** This flat ranking of seven was the first pass, and it was wrong in one important way: putting cost transparency at 6 and security and privacy at 7 implies a large enough saving could buy a relaxation of least privilege or consent. It cannot. The final version in [05-characteristics.md](../architecture/05-characteristics.md) separates three **invariants** (life safety, data integrity, security and privacy) that never enter the ranking, from four ranked characteristics that do, with cost transparency as a constraint on how they are met. Read that file, not this list.
+
 
 1. **Availability under partition.** Gates, alarms and keeper tools work with the cloud unreachable.
 2. **Evolvability.** Services, models and vendors are replaceable behind stable contracts.
@@ -304,7 +309,7 @@ Those are the uncached figures. Prompt caching on the stable prefix cuts the inp
 
 ## 6. Conformance: do the AI additions match the base architecture?
 
-| Characteristic | How each AI addition conforms |
+| Property | How each AI addition conforms |
 |---|---|
 | Availability under partition | Edge AI runs locally; cloud GenAI features degrade to Tier 3 fallbacks; nothing safety-related depends on a model call |
 | Evolvability | Models are registry entries behind capability contracts, repointed by config within a minute; owned models deploy over MQTT |

@@ -1,5 +1,8 @@
 # Validation and Verification of AI
 
+> **What this document is.** A specification of how AI results are measured, with named metrics, data sources and thresholds. It is **not** a report of results: no model has been run against a golden set, because there is no running system. Which claims in this submission *can* be settled today, and by what means, is set out in the [fitness function scorecard](architecture/05-characteristics.md#fitness-function-scorecard).
+
+
 How we know the AI works before release, and how we know when it stops working in production. Deterministic parts of the platform are tested in the ordinary way; this document covers the non-deterministic parts.
 
 Related decisions: [ADR-008](adr/ADR-008-evaluation-gated-promotion.md), [ADR-011](adr/ADR-011-human-in-the-loop.md), [ADR-012](adr/ADR-012-llm-observability-and-kill-switches.md). Harness design: [eval-harness.md](implementation/eval-harness.md).
@@ -119,3 +122,4 @@ Each AI feature sits behind a feature flag. Flipping it hands the feature to its
 | AI-5 Retention and revenue | Propensity lift; offer rubric score | Return visits; human panel | Conversion versus control; complaint rate | Per campaign |
 | AI-6 Ride condition monitoring | Anomaly precision against inspection | Inspector findings | Flag versus finding agreement | Every inspection |
 | AI-7 Company copilots | Rubric score; time saved | Staff review | Edit distance before acceptance | Monthly |
+| AI-8 Simulation gym | Backtest error against held-out seasons; explanation faithfulness | Actual outcomes of past seasons and past decisions | Constraint-violation rate on proposed scenarios; divergence from realised outcomes | Per decision cycle, and on recalibration |

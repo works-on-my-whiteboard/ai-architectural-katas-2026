@@ -6,7 +6,7 @@ Accepted, 2026-09-16. Supersedes / Superseded by: none.
 
 ## Context
 
-The brief asks for AI to be applied to counting piranhas, monitoring animal health and feeding, understanding crowd flow, growing repeat visits and improving profitability. The judges reward innovative use of AI but also score suitability, validation, and how the design deals with vendor uncertainty. Generative models are powerful with language and expensive, non-deterministic and vendor-dependent. Classic models are cheap, deterministic enough to test conventionally, and can be owned outright.
+The estate needs AI for counting piranhas, monitoring animal health and feeding, understanding crowd flow, growing repeat visits and improving profitability. The selection must suit each task, be testable and handle vendor uncertainty. Generative models are powerful with language and expensive, non-deterministic and vendor-dependent. Classic models are cheap, deterministic enough to test conventionally, and can be owned outright.
 
 Forces:
 
@@ -38,6 +38,7 @@ Applied to the use cases:
 | AI-5 Retention | Propensity scoring, owned; GenAI for offer copy | Numeric in, score out; copy is language |
 | AI-6 Ride condition | Vibration anomaly, owned | Numeric in, flag out; advisory only |
 | AI-7 Copilots | GenAI | Language in and out |
+| AI-8 Simulation gym | Discrete-event simulation and constrained optimisation, owned; GenAI for explanation only | Counterfactual simulation is owned and deterministic for a fixed seed; explanation is language |
 
 ## Consequences
 

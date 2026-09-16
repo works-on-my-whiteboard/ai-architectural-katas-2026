@@ -6,7 +6,7 @@ Accepted, 2026-09-16. Supersedes / Superseded by: none.
 
 ## Context
 
-The estate wants to know which parts of the park are popular and to bring visitors back with personalised offers. The cheapest way to count people is to sniff the WiFi and Bluetooth identifiers of their phones; the most effective way to personalise is to track everything a guest does. Both create legal exposure, reputational risk and a data store that is attractive to attackers. Security and privacy is a ranked characteristic of the base architecture.
+The estate wants to know which parts of the park are popular and to bring visitors back with personalised offers. The cheapest way to count people is to sniff the WiFi and Bluetooth identifiers of their phones; the most effective way to personalise is to track everything a guest does. Both create legal exposure, reputational risk and a data store that is attractive to attackers. Security and privacy is an invariant of the base architecture: it does not participate in the ranking and is not traded against cost or convenience ([05-characteristics](../architecture/05-characteristics.md)).
 
 Forces:
 
